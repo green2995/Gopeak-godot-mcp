@@ -23,7 +23,7 @@
 ## 왜 GoPeak인가 (핵심)
 
 - **실프로젝트 피드백 루프**: 실행 → 로그 확인 → 수정까지 한 흐름으로 처리
-- **95+ 도구 지원**: 씬/스크립트/리소스/런타임/LSP/DAP/입력/에셋 전반 커버
+- **110+ 도구 지원: 33개 기본 도구 + 22개 동적 툴 그룹 (78개 추가 도구를 필요할 때 활성화)**: 씬/스크립트/리소스/런타임/LSP/DAP/입력/에셋 전반 커버
 - **깊은 Godot 연동**: ClassDB 인트로스펙션, 런타임 검사, 디버거 연계
 - **개발 속도 향상**: 복붙 반복을 줄이고 구현-검증 사이클 단축
 
@@ -44,7 +44,7 @@
 | 입력 주입 도구 | README 기준 없음 | ✅ `inject_action`, `inject_key`, `inject_mouse_click`, `inject_mouse_motion` |
 | 스크린샷 캡처 도구 | README 기준 없음 | ✅ `capture_screenshot`, `capture_viewport` |
 | Auto Reload 에디터 플러그인 | 없음 | ✅ `auto_reload` 애드온 포함 |
-| 도구 커버리지 | 상대적으로 제한적 | ✅ 95+ MCP 도구 |
+| 도구 커버리지 | 상대적으로 제한적 | ✅ 110+ MCP 도구 |
 
 ---
 
@@ -143,6 +143,40 @@ Godot 자동 감지가 안 되면 `GODOT_PATH`를 지정하세요.
 | LSP/DAP | `lsp_get_diagnostics`, `dap_set_breakpoint` |
 | Input/Visual | `inject_key`, `inject_mouse_click`, `capture_screenshot` |
 
+### 동적 도구 그룹 (compact 모드)
+
+`compact` 모드에서는 78개 추가 도구가 **22개 그룹**으로 나뉘어 필요 시 자동 활성화됩니다:
+
+| 그룹 | 도구 수 | 설명 |
+|---|---|---|
+| `scene_advanced` | 3 | 노드 복제, 재부모화, 스프라이트 로드 |
+| `uid` | 2 | 리소스 UID 관리 |
+| `import_export` | 5 | 임포트 파이프라인, 재임포트, 프로젝트 검증 |
+| `autoload` | 4 | 오토로드 싱글톤, 메인 씬 설정 |
+| `signal` | 2 | 시그널 해제, 연결 목록 |
+| `runtime` | 4 | 라이브 씬 검사, 런타임 속성, 메트릭 |
+| `resource` | 4 | 머티리얼/셰이더/리소스 생성·수정 |
+| `animation` | 5 | 애니메이션, 트랙, 상태머신 |
+| `plugin` | 3 | 에디터 플러그인 관리 |
+| `input` | 1 | 입력 액션 매핑 |
+| `tilemap` | 2 | TileSet/TileMap 페인팅 |
+| `audio` | 4 | 오디오 버스, 이펙트, 볼륨 |
+| `navigation` | 2 | 네비게이션 리전/에이전트 |
+| `theme_ui` | 3 | 테마 컬러, 폰트 사이즈, 셰이더 |
+| `asset_store` | 3 | CC0 에셋 검색/다운로드 |
+| `testing` | 6 | 스크린샷, 뷰포트 캡처, 입력 주입 |
+| `dx_tools` | 4 | 에러 로그, 프로젝트 헬스, 사용처 검색 |
+| `intent_tracking` | 9 | 인텐트 캡처, 의사결정 로그, 핸드오프 |
+| `class_advanced` | 1 | 클래스 상속 검사 |
+| `lsp` | 3 | GDScript 완성, 호버, 심볼 |
+| `dap` | 6 | 브레이크포인트, 스텝핑, 스택트레이스 |
+| `version_gate` | 2 | 버전 검증, 패치 확인 |
+
+**사용 방법:**
+1. **카탈로그 자동 활성화**: `tool.catalog`로 검색하면 매칭 그룹이 자동 활성화됩니다.
+2. **수동 활성화**: `tool.groups`로 직접 그룹을 활성화/비활성화합니다.
+3. **초기화**: `tool.groups`의 `reset` 액션으로 모든 그룹을 비활성화합니다.
+
 ---
 
 ## 빠른 프롬프트 예시
@@ -183,6 +217,7 @@ curl -sL https://raw.githubusercontent.com/HaD0Yun/godot-mcp/main/install-addon.
 - **MCP 도구가 안 보임** → MCP 클라이언트 재시작
 - **프로젝트 경로 오류** → `project.godot` 존재 확인
 - **런타임 도구 미동작** → runtime addon 설치/활성화 확인
+- **필요한 도구가 안 보임** → `tool.catalog`으로 검색하거나 `tool.groups`로 그룹 활성화
 
 ---
 

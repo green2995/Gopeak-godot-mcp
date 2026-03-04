@@ -74,7 +74,7 @@ Herkömmliche KI-Assistenten können GDScript schreiben, arbeiten dabei aber im 
 - **Kontextbewusste Unterstützung**: Die KI kann Ihren echten Scene-Tree inspizieren, Ihre Node-Hierarchie verstehen und Vorschläge basierend auf Ihrer tatsächlichen Projektstruktur machen
 - **Validierung vor dem Vorschlagen**: Bevor die KI vorschlägt, eine Ressource zu verwenden, kann sie überprüfen, ob sie in Ihrem Projekt existiert
 
-#### 2. **95+ Werkzeuge mit dynamischer ClassDB-Introspektion**
+#### 2. **110+ Werkzeuge mit dynamischer ClassDB-Introspektion**
 
 Anstatt Werkzeuge für jede Godot-Klasse hardzukodieren, bietet GoPeak **generische Werkzeuge** (`add_node`, `create_resource`), die mit JEDER ClassDB-Klasse funktionieren, plus **ClassDB-Introspektionswerkzeuge**, mit denen die KI Klassen, Eigenschaften und Methoden dynamisch entdecken kann.
 
@@ -102,6 +102,40 @@ Anstatt Werkzeuge für jede Godot-Klasse hardzukodieren, bietet GoPeak **generis
 | **Auto-Reload** | Sofortige Editor-Aktualisierung bei externen Änderungen | Eingebautes Editor-Plugin |
 
 > **Designphilosophie**: Anstatt 90+ spezialisierte Werkzeuge (`create_camera`, `create_light`, `create_physics_material`) bereitzustellen, verwendet GoPeak generische `add_node`- und `create_resource`-Werkzeuge, die mit JEDER Godot-Klasse funktionieren. Die KI nutzt `query_classes`, um verfügbare Typen zu entdecken, und `query_class_info`, um ihre Eigenschaften zu erlernen — genau wie ein Entwickler, der die Godot-Dokumentation verwendet.
+
+#### Dynamische Werkzeuggruppen (compact Modus)
+
+Im `compact` Profil werden 33 Kernwerkzeuge angezeigt, während 78 weitere Werkzeuge in **22 Gruppen** organisiert sind und bei Bedarf automatisch aktiviert werden:
+
+| Gruppe | Werkzeuge | Beschreibung |
+|---|---|---|
+| `scene_advanced` | 3 | Node-Duplizierung, Reparenting, Sprite-Laden |
+| `uid` | 2 | Ressourcen-UID-Verwaltung |
+| `import_export` | 5 | Import-Pipeline, Re-Import, Projektvalidierung |
+| `autoload` | 4 | Autoload-Singletons, Hauptszene |
+| `signal` | 2 | Signal-Trennung, Verbindungsliste |
+| `runtime` | 4 | Live-Scene-Inspektion, Runtime-Properties, Metriken |
+| `resource` | 4 | Material/Shader/Ressourcen erstellen und ändern |
+| `animation` | 5 | Animationen, Tracks, Zustandsmaschinen |
+| `plugin` | 3 | Editor-Plugin-Verwaltung |
+| `input` | 1 | Eingabeaktion-Mapping |
+| `tilemap` | 2 | TileSet und TileMap-Painting |
+| `audio` | 4 | Audio-Busse, Effekte, Lautstärke |
+| `navigation` | 2 | Navigationsregionen/-agenten |
+| `theme_ui` | 3 | Theme-Farben, Schriftgrößen, Shader |
+| `asset_store` | 3 | CC0-Asset-Suche/Download |
+| `testing` | 6 | Screenshots, Viewport-Erfassung, Eingabe-Injektion |
+| `dx_tools` | 4 | Fehlerlog, Projektgesundheit, Verwendungssuche |
+| `intent_tracking` | 9 | Intent-Erfassung, Entscheidungslog, Übergabe |
+| `class_advanced` | 1 | Klassenvererbungs-Inspektion |
+| `lsp` | 3 | GDScript-Vervollständigung, Hover, Symbole |
+| `dap` | 6 | Haltepunkte, Stepping, Stack-Traces |
+| `version_gate` | 2 | Versionsvalidierung, Patch-Überprüfung |
+
+**Verwendung:**
+1. **Automatische Katalog-Aktivierung**: Bei Suche mit `tool.catalog` werden passende Gruppen automatisch aktiviert.
+2. **Manuelle Aktivierung**: Mit `tool.groups` können Gruppen direkt aktiviert/deaktiviert werden.
+3. **Zurücksetzen**: Mit der `reset`-Aktion von `tool.groups` werden alle Gruppen deaktiviert.
 
 #### 3. **Nahtlose Editor-Integration mit Auto-Reload**
 
@@ -508,7 +542,7 @@ MIT-Lizenz - Details siehe [LICENSE](LICENSE).
 
 ## Statistiken
 
-- **95+ Werkzeuge** — Umfassende Werkzeuge für Scene-Verwaltung, Scripting, Ressourcen, Animation, Konfiguration, Debugging, Screenshots, Eingabe-Injektion, LSP, DAP und Asset-Verwaltung
+- **110+ Werkzeuge** — Umfassende Werkzeuge für Scene-Verwaltung, Scripting, Ressourcen, Animation, Konfiguration, Debugging, Screenshots, Eingabe-Injektion, LSP, DAP und Asset-Verwaltung
 - **MCP-Ressourcen** — `godot://`-URI-Protokoll für direkten Projektdateizugriff
 - **GDScript LSP** — Echtzeit-Diagnose, Vervollständigungen, Hover und Symbole über Godots Language Server
 - **Debug-Adapter (DAP)** — Haltepunkte, Schrittausführung, Stack-Traces und Konsolenausgabe-Erfassung

@@ -74,9 +74,9 @@ Assistentes de IA tradicionais podem escrever GDScript, mas estão essencialment
 - **Assistência Ciente do Contexto**: A IA pode inspecionar sua árvore de cenas real, entender sua hierarquia de nós e fornecer sugestões baseadas na estrutura real do seu projeto
 - **Validação Antes de Sugerir**: Antes de sugerir o uso de um recurso, a IA pode verificar se ele existe no seu projeto
 
-#### 2. **95+ Ferramentas com Introspecção Dinâmica de ClassDB**
+#### 2. **110+ Ferramentas com Introspecção Dinâmica de ClassDB**
 
-Em vez de codificar ferramentas fixas para cada classe do Godot, GoPeak fornece **ferramentas genéricas** (`add_node`, `create_resource`) que funcionam com QUALQUER classe ClassDB, além de **ferramentas de introspecção ClassDB** que permitem à IA descobrir classes, propriedades e métodos dinamicamente.
+Em vez de codificar ferramentas fixas para cada classe do Godot, GoPeak fornece **ferramentas genéricas** (`add_node`, `create_resource`) que funcionam com QUALQUER classe ClassDB, além de **ferramentas de introspecção ClassDB** que permitem à IA descobrir classes, propriedades e métodos dinamicamente, totalizando **110 ferramentas**.
 
 | Categoria | O que você pode fazer | Ferramentas |
 |-----------|----------------------|-------------|
@@ -102,6 +102,40 @@ Em vez de codificar ferramentas fixas para cada classe do Godot, GoPeak fornece 
 | **Auto Reload** | Atualização instantânea do editor em mudanças externas | Plugin de Editor Integrado |
 
 > **Filosofia de Design**: Em vez de fornecer 90+ ferramentas especializadas (como `create_camera`, `create_light`, `create_physics_material`), GoPeak usa ferramentas genéricas `add_node` e `create_resource` que funcionam com QUALQUER classe Godot. A IA usa `query_classes` para descobrir tipos disponíveis e `query_class_info` para aprender suas propriedades — assim como um desenvolvedor usando a documentação do Godot.
+
+#### Grupos Dinâmicos de Ferramentas (modo compact)
+
+No perfil `compact`, 33 ferramentas principais são exibidas, enquanto 78 ferramentas adicionais são organizadas em **22 grupos** que se ativam automaticamente quando necessário:
+
+| Grupo | Ferramentas | Descrição |
+|---|---|---|
+| `scene_advanced` | 3 | Duplicação de nós, re-parentização, carregar sprites |
+| `uid` | 2 | Gerenciamento de UID de recursos |
+| `import_export` | 5 | Pipeline de importação, reimportação, validação de projeto |
+| `autoload` | 4 | Singletons autoload, cena principal |
+| `signal` | 2 | Desconexão de sinais, lista de conexões |
+| `runtime` | 4 | Inspeção de cena ao vivo, propriedades runtime, métricas |
+| `resource` | 4 | Criar/modificar materiais, shaders, recursos |
+| `animation` | 5 | Animações, tracks, máquinas de estado |
+| `plugin` | 3 | Gerenciamento de plugins do editor |
+| `input` | 1 | Mapeamento de ações de entrada |
+| `tilemap` | 2 | TileSet e pintura de TileMap |
+| `audio` | 4 | Barramentos de áudio, efeitos, volume |
+| `navigation` | 2 | Regiões/agentes de navegação |
+| `theme_ui` | 3 | Cores de tema, tamanho de fonte, shaders |
+| `asset_store` | 3 | Busca/download de assets CC0 |
+| `testing` | 6 | Screenshots, captura de viewport, injeção de entrada |
+| `dx_tools` | 4 | Log de erros, saúde do projeto, busca de usos |
+| `intent_tracking` | 9 | Captura de intenção, log de decisões, handoff |
+| `class_advanced` | 1 | Inspeção de herança de classes |
+| `lsp` | 3 | Completação GDScript, hover, símbolos |
+| `dap` | 6 | Breakpoints, stepping, stack traces |
+| `version_gate` | 2 | Validação de versão, verificação de patch |
+
+**Como usar:**
+1. **Ativação automática por catálogo**: Ao pesquisar com `tool.catalog`, grupos correspondentes são ativados automaticamente.
+2. **Ativação manual**: Use `tool.groups` para ativar/desativar grupos diretamente.
+3. **Reset**: Use a ação `reset` do `tool.groups` para desativar todos os grupos.
 
 #### 3. **Integração Perfeita com o Editor via Auto Reload**
 
