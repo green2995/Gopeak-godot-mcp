@@ -770,43 +770,120 @@ class GodotServer {
         socket.write(payload + '\n');
       });
 
-      let responseData = '';
+      let responseBuffer = Buffer.alloc(0);
+      let resolved = false;
       const timer = setTimeout(() => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
         socket.destroy();
         resolve({
           content: [{ type: 'text', text: `Runtime command '${command}' timed out after ${TIMEOUT_MS}ms. Ensure the Godot game is running with the MCP runtime addon enabled.` }],
         });
       }, TIMEOUT_MS);
 
-      socket.setEncoding('utf8');
-      socket.on('data', (chunk: string) => {
-        responseData += chunk;
-        if (responseData.includes('\n') || responseData.includes('}')) {
-          clearTimeout(timer);
-          socket.destroy();
+      const resolveRuntimePayload = (parsed: any) => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        clearTimeout(timer);
+        socket.destroy();
+
+        if (parsed.type === 'screenshot' && parsed.data) {
+          resolve({
+            content: [
+              { type: 'text', text: `Screenshot captured: ${parsed.width}x${parsed.height} ${parsed.format}` },
+              { type: 'image', text: parsed.data },
+            ],
+          });
+          return;
+        }
+
+        resolve({
+          content: [{ type: 'text', text: JSON.stringify(parsed, null, 2) }],
+        });
+      };
+
+      socket.on('data', (chunk: Buffer) => {
+        responseBuffer = Buffer.concat([responseBuffer, Buffer.from(chunk)]);
+        const parsedMessages: any[] = [];
+
+        const parseCandidate = (candidate: string) => {
+          const trimmed = candidate.trim();
+          if (!trimmed) {
+            return;
+          }
           try {
-            const parsed = JSON.parse(responseData.trim());
-            if (parsed.type === 'screenshot' && parsed.data) {
-              resolve({
-                content: [
-                  { type: 'text', text: `Screenshot captured: ${parsed.width}x${parsed.height} ${parsed.format}` },
-                  { type: 'image', text: parsed.data },
-                ],
-              });
-              return;
-            }
-            resolve({
-              content: [{ type: 'text', text: JSON.stringify(parsed, null, 2) }],
-            });
+            parsedMessages.push(JSON.parse(trimmed));
           } catch {
-            resolve({
-              content: [{ type: 'text', text: responseData.trim() || 'Command sent successfully (no structured response).' }],
-            });
+            // Ignore malformed frame/line and keep scanning.
+          }
+        };
+
+        // First, parse the framed payload format emitted by Godot's StreamPeerTCP.put_utf8_string().
+        let offset = 0;
+        while (offset + 4 <= responseBuffer.length) {
+          const frameLength = responseBuffer.readUInt32LE(offset);
+          if (frameLength <= 0 || offset + 4 + frameLength > responseBuffer.length) {
+            break;
+          }
+
+          const frame = responseBuffer.subarray(offset + 4, offset + 4 + frameLength).toString('utf8');
+          parseCandidate(frame);
+          offset += 4 + frameLength;
+        }
+        if (offset > 0) {
+          responseBuffer = responseBuffer.subarray(offset);
+        }
+
+        // Fallback for plain newline-delimited JSON payloads.
+        let newlineIndex = responseBuffer.indexOf(0x0a);
+        while (newlineIndex !== -1) {
+          const line = responseBuffer.subarray(0, newlineIndex).toString('utf8');
+          responseBuffer = responseBuffer.subarray(newlineIndex + 1);
+          parseCandidate(line);
+          newlineIndex = responseBuffer.indexOf(0x0a);
+        }
+
+        if (parsedMessages.length > 0) {
+          const candidate = parsedMessages.find((message) => message?.type === 'screenshot' && message?.data)
+            ?? parsedMessages.find((message) => message?.type === 'pong')
+            ?? parsedMessages.find((message) => message?.type && message.type !== 'welcome')
+            ?? null;
+
+          if (candidate) {
+            resolveRuntimePayload(candidate);
           }
         }
       });
 
+      socket.on('end', () => {
+        if (resolved) {
+          return;
+        }
+
+        clearTimeout(timer);
+        const responseData = responseBuffer.toString('utf8').trim();
+        resolved = true;
+        try {
+          const parsed = JSON.parse(responseData);
+          resolve({
+            content: [{ type: 'text', text: JSON.stringify(parsed, null, 2) }],
+          });
+        } catch {
+          resolve({
+            content: [{ type: 'text', text: responseData || 'Command sent successfully (no structured response).' }],
+          });
+        }
+      });
+
       socket.on('error', (error: Error) => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
         clearTimeout(timer);
         resolve({
           content: [{ type: 'text', text: `Failed to connect to Godot runtime addon at ${RUNTIME_HOST}:${RUNTIME_PORT}: ${error.message}. Ensure the game is running with the MCP runtime autoload enabled.` }],

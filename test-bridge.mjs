@@ -417,6 +417,7 @@ async function main() {
 
       try {
         const request = JSON.parse(line);
+        socket.write(`${JSON.stringify({ type: 'welcome', protocol: 'godot_mcp_runtime', version: '1.0.0' })}\n`);
         socket.write(`${JSON.stringify({ type: 'pong', id: request.id, timestamp: Date.now() })}\n`);
       } catch {
         socket.write(`${JSON.stringify({ error: 'invalid_json' })}\n`);
