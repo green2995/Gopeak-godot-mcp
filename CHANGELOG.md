@@ -2,6 +2,18 @@
 
 All notable changes to GoPeak (godot-mcp) will be documented in this file.
 
+## [2.3.4] - 2026-03-21
+
+### Fixed
+- Runtime live-inspection tools now relay runtime addon responses consistently.
+- Runtime screenshot capture returns image content reliably for automation flows.
+- OpenAI-facing tool names are sanitized before exposure to clients.
+- Windows setup now skips unsupported shell-hook installation steps.
+
+### Improved
+- Node-based test spawning and CI dependency audit handling are more stable during release verification.
+- README community links were refreshed by removing the expired Discord invite.
+
 ## [2.3.3] - 2026-03-09
 
 ### Fixed
