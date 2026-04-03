@@ -41,6 +41,18 @@ import type { GodotProcess, GodotServerConfig, MCPToolDefinition, OperationParam
 
 const execAsync = promisify(exec);
 
+/** Resolve a port from environment variables, falling back to a default. */
+function resolveEnvPort(envKeys: string[], defaultPort: number): number {
+  for (const key of envKeys) {
+    const raw = process.env[key];
+    if (!raw || raw.trim().length === 0) continue;
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535) return parsed;
+    console.error(`[GoPeak] Ignoring invalid ${key}="${raw}". Expected an integer between 1 and 65535.`);
+  }
+  return defaultPort;
+}
+
 // Derive __filename and __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -539,7 +551,7 @@ class GodotServer {
     args: unknown,
   ): Promise<{ content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> }> {
     const params = (args && typeof args === 'object') ? args as Record<string, unknown> : {};
-    const RUNTIME_PORT = 7777;
+    const RUNTIME_PORT = resolveEnvPort(['GOPEAK_RUNTIME_PORT', 'GODOT_RUNTIME_PORT'], 7777);
     const RUNTIME_HOST = '127.0.0.1';
     const TIMEOUT_MS = 10000;
 
@@ -673,14 +685,14 @@ class GodotServer {
 
   private async handleLSP(toolName: string, args: unknown): Promise<{ content: Array<{ type: string; text: string }> }> {
     if (!this.lspClient) {
-      this.lspClient = new GodotLSPClient();
+      this.lspClient = new GodotLSPClient(resolveEnvPort(['GOPEAK_LSP_PORT', 'GODOT_LSP_PORT'], 6005));
     }
     return handleLSPTool(this.lspClient, toolName, args);
   }
 
   private async handleDAP(toolName: string, args: unknown): Promise<{ content: Array<{ type: string; text: string }> }> {
     if (!this.dapClient) {
-      this.dapClient = new GodotDAPClient();
+      this.dapClient = new GodotDAPClient(resolveEnvPort(['GOPEAK_DAP_PORT', 'GODOT_DAP_PORT'], 6006));
     }
     return handleDAPTool(this.dapClient, toolName, args);
   }

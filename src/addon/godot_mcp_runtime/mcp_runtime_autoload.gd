@@ -20,6 +20,9 @@ signal command_received(command: String, params: Dictionary)
 
 func _ready() -> void:
 	name = "MCPRuntime"
+	# Allow port override via project setting
+	if ProjectSettings.has_setting("gopeak/runtime_port"):
+		_port = int(ProjectSettings.get_setting("gopeak/runtime_port"))
 	_start_server()
 	print("[MCP Runtime] Autoload ready, server starting on port %d" % _port)
 
