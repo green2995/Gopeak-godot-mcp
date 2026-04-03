@@ -143,6 +143,12 @@ export class GodotBridge extends EventEmitter {
       return Promise.resolve();
     }
 
+    return this.startWithRetry(0);
+  }
+
+  private startWithRetry(attempt: number): Promise<void> {
+    const MAX_RETRY = 1;
+
     return new Promise((resolve, reject) => {
       const server = http.createServer((req, res) => {
         this.handleHttpRequest(req, res);
@@ -173,9 +179,27 @@ export class GodotBridge extends EventEmitter {
         resolve();
       });
 
-      server.once('error', (error) => {
+      server.once('error', (error: NodeJS.ErrnoException) => {
         if (!settled) {
           settled = true;
+
+          // Handle EADDRINUSE: try to kill the stale process, then retry once
+          if (error.code === 'EADDRINUSE' && attempt < MAX_RETRY) {
+            this.log('warn', `Port ${this.port} in use — attempting to free it (attempt ${attempt + 1})`);
+            this.tryFreePort(this.port).then(() => {
+              // Wait a moment for the OS to release the port
+              setTimeout(() => {
+                this.startWithRetry(attempt + 1).then(resolve, reject);
+              }, 500);
+            }).catch(() => {
+              reject(new Error(
+                `Port ${this.port} is in use by another process. ` +
+                `Kill the process using port ${this.port} or set GODOT_BRIDGE_PORT to a different port.`
+              ));
+            });
+            return;
+          }
+
           reject(error);
           return;
         }
@@ -193,6 +217,32 @@ export class GodotBridge extends EventEmitter {
 
       server.listen(this.port, this.host);
     });
+  }
+
+  private async tryFreePort(port: number): Promise<void> {
+    const { exec } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execAsync = promisify(exec);
+
+    try {
+      // Find the PID using the port (works on macOS and Linux)
+      const { stdout } = await execAsync(`lsof -ti tcp:${port}`);
+      const pids = stdout.trim().split('\n').filter(Boolean);
+
+      for (const pid of pids) {
+        const pidNum = Number.parseInt(pid, 10);
+        if (!Number.isNaN(pidNum) && pidNum > 0) {
+          this.log('info', `Killing stale process ${pidNum} on port ${port}`);
+          try {
+            process.kill(pidNum, 'SIGTERM');
+          } catch {
+            // Process might have already exited
+          }
+        }
+      }
+    } catch {
+      throw new Error(`Could not free port ${port}`);
+    }
   }
 
   public async stop(): Promise<void> {
@@ -422,10 +472,25 @@ export class GodotBridge extends EventEmitter {
   }
 
   private handleConnection(nextSocket: WebSocket): void {
-    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
-      this.log('warn', 'Rejecting second Godot connection');
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      // Only reject if the existing socket is truly alive (OPEN).
+      // If it's CLOSING or CONNECTING, replace it — it's stale.
+      this.log('warn', 'Rejecting second Godot connection (existing socket is OPEN)');
       nextSocket.close(SECOND_CONNECTION_CLOSE_CODE, 'Godot already connected');
       return;
+    }
+
+    // Clean up stale socket (CLOSING or CONNECTING state)
+    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
+      this.log('info', `Replacing stale socket (readyState=${this.socket.readyState})`);
+      try {
+        this.socket.removeAllListeners();
+        this.socket.close();
+      } catch {
+        // Ignore errors closing stale socket
+      }
+      this.stopKeepalive();
+      this.rejectAllPending(new Error('Stale connection replaced'));
     }
 
     this.socket = nextSocket;
@@ -711,5 +776,5 @@ export function getDefaultBridge(): GodotBridge {
 }
 
 export function createBridge(port?: number, timeoutMs?: number, host?: string): GodotBridge {
-  return new GodotBridge(port, host, timeoutMs);
+  return new GodotBridge(port, host ?? DEFAULT_HOST, timeoutMs ?? DEFAULT_TIMEOUT_MS);
 }

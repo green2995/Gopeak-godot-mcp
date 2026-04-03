@@ -18,6 +18,7 @@ var _current_reconnect_delay := RECONNECT_DELAY
 var _should_reconnect := true
 var _project_path: String
 var _initialized := false
+var _pending_reconnect := false
 
 
 func _ready() -> void:
@@ -39,6 +40,11 @@ func _process(_delta: float) -> void:
 	if socket.get_ready_state() == WebSocketPeer.STATE_CLOSED:
 		if _is_connected:
 			_handle_disconnect()
+		elif _should_reconnect and not _pending_reconnect:
+			# Connection attempt failed before ever connecting — schedule retry
+			_schedule_reconnect()
+		if _pending_reconnect:
+			_attempt_connection()
 		return
 
 	socket.poll()
@@ -58,6 +64,10 @@ func _process(_delta: float) -> void:
 		WebSocketPeer.STATE_CLOSED:
 			if _is_connected:
 				_handle_disconnect()
+			elif _should_reconnect and not _pending_reconnect:
+				_schedule_reconnect()
+			if _pending_reconnect:
+				_attempt_connection()
 
 
 func connect_to_server(url: String = "") -> void:
@@ -86,6 +96,7 @@ func _resolve_server_url(explicit_url: String) -> String:
 
 func disconnect_from_server() -> void:
 	_should_reconnect = false
+	_pending_reconnect = false
 	if _reconnect_timer:
 		_reconnect_timer.stop()
 	if socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
@@ -94,9 +105,16 @@ func disconnect_from_server() -> void:
 
 
 func _attempt_connection() -> void:
-	if socket.get_ready_state() != WebSocketPeer.STATE_CLOSED:
+	var state := socket.get_ready_state()
+	if state != WebSocketPeer.STATE_CLOSED:
+		# Socket not yet closed — close it and wait for next _process cycle
 		socket.close()
+		_pending_reconnect = true
+		return
 
+	_pending_reconnect = false
+	# Create a fresh socket to avoid stale state
+	socket = WebSocketPeer.new()
 	var err := socket.connect_to_url(server_url)
 	if err != OK:
 		push_error("[MCP Editor] Failed to connect: %s" % err)
@@ -125,6 +143,8 @@ func _handle_disconnect() -> void:
 
 func _schedule_reconnect() -> void:
 	if _reconnect_timer == null:
+		return
+	if _reconnect_timer.time_left > 0:
 		return
 	_reconnect_timer.start(_current_reconnect_delay)
 	_current_reconnect_delay = min(_current_reconnect_delay * 2.0, MAX_RECONNECT_DELAY)

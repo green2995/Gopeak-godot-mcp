@@ -82,6 +82,7 @@ func _find_node(root: Node, path: String) -> Node:
 
 
 func _parse_value(value):
+	# Handle typed dictionaries: {"type": "Vector2", "x": ..., "y": ...}
 	if typeof(value) == TYPE_DICTIONARY and value.has("type"):
 		match value["type"]:
 			"Vector2":
@@ -123,11 +124,63 @@ func _parse_value(value):
 				if resource_path.is_empty():
 					return null
 				return load(resource_path)
+
+	# Handle untyped dict: {"x": 100, "y": 200} or {"x": 1, "y": 2, "z": 3}
+	if typeof(value) == TYPE_DICTIONARY and not value.has("type"):
+		if value.has("x") and value.has("y"):
+			if value.has("z"):
+				return Vector3(float(value["x"]), float(value["y"]), float(value["z"]))
+			return Vector2(float(value["x"]), float(value["y"]))
+		if value.has("r") and value.has("g") and value.has("b"):
+			return Color(float(value["r"]), float(value["g"]), float(value["b"]), float(value.get("a", 1.0)))
+
+	# Handle array format: [100, 200] -> Vector2, [1, 2, 3] -> Vector3
 	if typeof(value) == TYPE_ARRAY:
+		var arr: Array = value
+		if arr.size() == 2 and (typeof(arr[0]) == TYPE_FLOAT or typeof(arr[0]) == TYPE_INT):
+			return Vector2(float(arr[0]), float(arr[1]))
+		if arr.size() == 3 and (typeof(arr[0]) == TYPE_FLOAT or typeof(arr[0]) == TYPE_INT):
+			return Vector3(float(arr[0]), float(arr[1]), float(arr[2]))
+		if arr.size() == 4 and (typeof(arr[0]) == TYPE_FLOAT or typeof(arr[0]) == TYPE_INT):
+			return Color(float(arr[0]), float(arr[1]), float(arr[2]), float(arr[3]))
+		# Generic array — recurse
 		var result: Array = []
-		for item in value:
+		for item in arr:
 			result.append(_parse_value(item))
 		return result
+
+	# Handle string format: "Vector2(100, 200)", "Color(1, 0, 0, 1)"
+	if typeof(value) == TYPE_STRING:
+		var s: String = value.strip_edges()
+		if s.begins_with("Vector2(") and s.ends_with(")"):
+			var inner := s.substr(8, s.length() - 9)
+			var parts := inner.split(",")
+			if parts.size() == 2:
+				return Vector2(float(parts[0].strip_edges()), float(parts[1].strip_edges()))
+		if s.begins_with("Vector3(") and s.ends_with(")"):
+			var inner := s.substr(8, s.length() - 9)
+			var parts := inner.split(",")
+			if parts.size() == 3:
+				return Vector3(float(parts[0].strip_edges()), float(parts[1].strip_edges()), float(parts[2].strip_edges()))
+		if s.begins_with("Vector2i(") and s.ends_with(")"):
+			var inner := s.substr(9, s.length() - 10)
+			var parts := inner.split(",")
+			if parts.size() == 2:
+				return Vector2i(int(parts[0].strip_edges()), int(parts[1].strip_edges()))
+		if s.begins_with("Vector3i(") and s.ends_with(")"):
+			var inner := s.substr(9, s.length() - 10)
+			var parts := inner.split(",")
+			if parts.size() == 3:
+				return Vector3i(int(parts[0].strip_edges()), int(parts[1].strip_edges()), int(parts[2].strip_edges()))
+		if s.begins_with("Color(") and s.ends_with(")"):
+			var inner := s.substr(6, s.length() - 7)
+			var parts := inner.split(",")
+			if parts.size() >= 3:
+				var a := 1.0
+				if parts.size() >= 4:
+					a = float(parts[3].strip_edges())
+				return Color(float(parts[0].strip_edges()), float(parts[1].strip_edges()), float(parts[2].strip_edges()), a)
+
 	return value
 
 
