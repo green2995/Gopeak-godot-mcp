@@ -11,6 +11,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const KEEPALIVE_INTERVAL_MS = 10_000;
 const SECOND_CONNECTION_CLOSE_CODE = 4000;
 const BRIDGE_PORT_ENV_KEYS = ['GODOT_BRIDGE_PORT', 'MCP_BRIDGE_PORT', 'GOPEAK_BRIDGE_PORT'] as const;
+const PORT_SCAN_RANGE = 10;
 const BRIDGE_HOST_ENV_KEYS = ['GODOT_BRIDGE_HOST', 'MCP_BRIDGE_HOST', 'GOPEAK_BRIDGE_HOST'] as const;
 const BRIDGE_VERSION = (() => {
   try {
@@ -138,11 +139,19 @@ export class GodotBridge extends EventEmitter {
     super();
   }
 
+  /** The port actually in use (may differ from requested port after auto-increment). */
+  public get actualPort(): number { return this._actualPort; }
+  private _actualPort: number = 0;
+
   public start(): Promise<void> {
     if (this.httpServer) {
       return Promise.resolve();
     }
 
+    return this.tryListenOnPort(this.port, 0);
+  }
+
+  private tryListenOnPort(port: number, attempt: number): Promise<void> {
     return new Promise((resolve, reject) => {
       const server = http.createServer((req, res) => {
         this.handleHttpRequest(req, res);
@@ -169,14 +178,22 @@ export class GodotBridge extends EventEmitter {
         this.httpServer = server;
         this.godotWss = godotWss;
         this.vizWss = vizWss;
-        this.log('info', `Unified HTTP+WS bridge listening on ${this.host}:${this.port}`);
+        this._actualPort = port;
+        this.log('info', `Unified HTTP+WS bridge listening on ${this.host}:${port}`);
         resolve();
       });
 
-      server.once('error', (error) => {
+      server.once('error', (error: NodeJS.ErrnoException) => {
         if (!settled) {
           settled = true;
-          reject(error);
+          if (error.code === 'EADDRINUSE' && attempt < PORT_SCAN_RANGE) {
+            const nextPort = port + 1;
+            this.log('info', `Port ${port} in use, trying ${nextPort}...`);
+            server.close();
+            resolve(this.tryListenOnPort(nextPort, attempt + 1));
+          } else {
+            reject(error);
+          }
           return;
         }
 
@@ -191,7 +208,7 @@ export class GodotBridge extends EventEmitter {
         this.log('error', `Visualizer WebSocket server error: ${error.message}`);
       });
 
-      server.listen(this.port, this.host);
+      server.listen(port, this.host);
     });
   }
 

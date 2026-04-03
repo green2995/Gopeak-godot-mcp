@@ -7,6 +7,8 @@ signal disconnected
 signal tool_requested(request_id: String, tool_name: String, args: Dictionary)
 
 const DEFAULT_URL := "ws://127.0.0.1:6505/godot"
+const DEFAULT_PORT := 6505
+const PORT_SCAN_RANGE := 10
 const RECONNECT_DELAY := 3.0
 const MAX_RECONNECT_DELAY := 30.0
 
@@ -71,6 +73,7 @@ func _resolve_server_url(explicit_url: String) -> String:
 	if explicit_url != "":
 		return explicit_url
 
+	# Check env vars for explicit port
 	var env_keys := ["GODOT_BRIDGE_PORT", "MCP_BRIDGE_PORT", "GOPEAK_BRIDGE_PORT"]
 	for key in env_keys:
 		var raw := OS.get_environment(key)
@@ -80,6 +83,21 @@ func _resolve_server_url(explicit_url: String) -> String:
 			var port := int(raw)
 			if port >= 1 and port <= 65535:
 				return "ws://127.0.0.1:%d/godot" % port
+
+	# Auto-scan port range for a listening bridge
+	for i in range(PORT_SCAN_RANGE + 1):
+		var try_port := DEFAULT_PORT + i
+		var tcp := StreamPeerTCP.new()
+		var err := tcp.connect_to_host("127.0.0.1", try_port)
+		if err == OK:
+			# Brief poll to check if connection establishes
+			for _j in range(5):
+				tcp.poll()
+				if tcp.get_status() == StreamPeerTCP.STATUS_CONNECTED:
+					tcp.disconnect_from_host()
+					return "ws://127.0.0.1:%d/godot" % try_port
+				OS.delay_msec(50)
+		tcp.disconnect_from_host()
 
 	return DEFAULT_URL
 

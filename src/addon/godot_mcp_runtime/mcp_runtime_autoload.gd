@@ -5,6 +5,7 @@ extends Node
 ## It starts a TCP server that the MCP server can connect to.
 
 const DEFAULT_PORT = 7777
+const PORT_SCAN_RANGE = 10
 const PROTOCOL_VERSION = "1.0"
 
 var _server: TCPServer
@@ -62,12 +63,19 @@ func _process(_delta: float) -> void:
 
 func _start_server() -> void:
 	_server = TCPServer.new()
-	var error = _server.listen(_port)
-	if error != OK:
-		push_error("[MCP Runtime] Failed to start server on port %d: %s" % [_port, error])
-		_enabled = false
-	else:
-		print("[MCP Runtime] Server listening on port %d" % _port)
+	var base_port := _port
+	for i in range(PORT_SCAN_RANGE + 1):
+		var try_port := base_port + i
+		var error := _server.listen(try_port)
+		if error == OK:
+			_port = try_port
+			print("[MCP Runtime] Server listening on port %d" % _port)
+			return
+		_server.stop()
+		if i < PORT_SCAN_RANGE:
+			print("[MCP Runtime] Port %d in use, trying %d..." % [try_port, try_port + 1])
+	push_error("[MCP Runtime] Failed to start server on ports %d-%d" % [base_port, base_port + PORT_SCAN_RANGE])
+	_enabled = false
 
 
 func _send_welcome(client: StreamPeerTCP) -> void:

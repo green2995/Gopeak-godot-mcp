@@ -554,12 +554,27 @@ class GodotServer {
     args: unknown,
   ): Promise<{ content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> }> {
     const params = (args && typeof args === 'object') ? args as Record<string, unknown> : {};
-    const RUNTIME_PORT = resolveEnvPort(['GOPEAK_RUNTIME_PORT', 'GODOT_RUNTIME_PORT'], 7777);
+    const RUNTIME_BASE_PORT = resolveEnvPort(['GOPEAK_RUNTIME_PORT', 'GODOT_RUNTIME_PORT'], 7777);
     const RUNTIME_HOST = '127.0.0.1';
     const TIMEOUT_MS = 10000;
+    const SCAN_RANGE = 10;
 
+    // If we previously found a working port, try it first
+    const port = this.lastRuntimePort ?? RUNTIME_BASE_PORT;
+
+    return this.tryRuntimePort(command, params, port, RUNTIME_BASE_PORT, RUNTIME_HOST, TIMEOUT_MS, SCAN_RANGE, 0);
+  }
+
+  private lastRuntimePort: number | null = null;
+
+  private tryRuntimePort(
+    command: string, params: Record<string, unknown>,
+    port: number, basePort: number, host: string, timeoutMs: number,
+    scanRange: number, attempt: number,
+  ): Promise<{ content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> }> {
     return new Promise((resolve) => {
-      const socket = createTcpConnection({ port: RUNTIME_PORT, host: RUNTIME_HOST }, () => {
+      const socket = createTcpConnection({ port, host }, () => {
+        this.lastRuntimePort = port;
         const payload = JSON.stringify({ command, params, id: Date.now() });
         socket.write(payload + '\n');
       });
@@ -573,9 +588,9 @@ class GodotServer {
         resolved = true;
         socket.destroy();
         resolve({
-          content: [{ type: 'text', text: `Runtime command '${command}' timed out after ${TIMEOUT_MS}ms. Ensure the Godot game is running with the MCP runtime addon enabled.` }],
+          content: [{ type: 'text', text: `Runtime command '${command}' timed out after ${timeoutMs}ms. Ensure the Godot game is running with the MCP runtime addon enabled.` }],
         });
-      }, TIMEOUT_MS);
+      }, timeoutMs);
 
       const resolveRuntimePayload = (parsed: any) => {
         if (resolved) {
@@ -679,8 +694,16 @@ class GodotServer {
         }
         resolved = true;
         clearTimeout(timer);
+        // Try next port in range if connection refused
+        if ((error as NodeJS.ErrnoException).code === 'ECONNREFUSED' && attempt < scanRange) {
+          const nextPort = basePort + ((port - basePort + 1) % (scanRange + 1));
+          if (nextPort !== port) {
+            resolve(this.tryRuntimePort(command, params, nextPort, basePort, host, timeoutMs, scanRange, attempt + 1));
+            return;
+          }
+        }
         resolve({
-          content: [{ type: 'text', text: `Failed to connect to Godot runtime addon at ${RUNTIME_HOST}:${RUNTIME_PORT}: ${error.message}. Ensure the game is running with the MCP runtime autoload enabled.` }],
+          content: [{ type: 'text', text: `Failed to connect to Godot runtime addon on ports ${basePort}-${basePort + scanRange}: ${error.message}. Ensure the game is running with the MCP runtime autoload enabled.` }],
         });
       });
     });
